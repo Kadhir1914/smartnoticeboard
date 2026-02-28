@@ -12,18 +12,10 @@ import {
 import { db } from "../firebase/firebase";
 import { useAuth } from "../hooks/useAuth";
 import type { Notice } from "../types";
+import { CATEGORIES, COLOR_MAP } from "../constants/categories";
 import Navbar from "../components/Navbar";
+import CategorySection from "../components/CategorySection";
 import LoadingSpinner from "../components/LoadingSpinner";
-
-const CATEGORIES = [
-    "General",
-    "Academic",
-    "Event",
-    "Exam",
-    "Sports",
-    "Placement",
-    "Other",
-];
 
 export default function AdminPage() {
     const { user } = useAuth();
@@ -34,7 +26,7 @@ export default function AdminPage() {
     // Form state
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
-    const [category, setCategory] = useState(CATEGORIES[0]);
+    const [category, setCategory] = useState(CATEGORIES[0].key);
     const [priority, setPriority] = useState<"normal" | "urgent">("normal");
     const [expiryDate, setExpiryDate] = useState("");
 
@@ -67,7 +59,7 @@ export default function AdminPage() {
             // Reset form
             setTitle("");
             setDescription("");
-            setCategory(CATEGORIES[0]);
+            setCategory(CATEGORIES[0].key);
             setPriority("normal");
             setExpiryDate("");
         } catch (err) {
@@ -85,6 +77,14 @@ export default function AdminPage() {
             console.error("Failed to delete notice:", err);
         }
     };
+
+    // Group notices by category
+    const grouped = new Map<string, Notice[]>();
+    for (const notice of notices) {
+        const key = notice.category || "Other";
+        if (!grouped.has(key)) grouped.set(key, []);
+        grouped.get(key)!.push(notice);
+    }
 
     const inputClass =
         "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-gray-500 outline-none transition-all focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20";
@@ -147,8 +147,8 @@ export default function AdminPage() {
                                             className={inputClass}
                                         >
                                             {CATEGORIES.map((c) => (
-                                                <option key={c} value={c} className="bg-gray-900">
-                                                    {c}
+                                                <option key={c.key} value={c.key} className="bg-gray-900">
+                                                    {c.key}
                                                 </option>
                                             ))}
                                         </select>
@@ -201,7 +201,7 @@ export default function AdminPage() {
                         </div>
                     </div>
 
-                    {/* Notices list */}
+                    {/* Notices list — grouped by category */}
                     <div className="lg:col-span-3">
                         <h2 className="text-lg font-semibold text-white mb-4">
                             All Notices ({notices.length})
@@ -209,64 +209,92 @@ export default function AdminPage() {
 
                         {loading ? (
                             <LoadingSpinner />
-                        ) : notices.length === 0 ? (
-                            <div className="rounded-2xl border border-white/10 bg-white/5 p-10 text-center">
-                                <p className="text-gray-400">No notices created yet.</p>
-                            </div>
                         ) : (
-                            <div className="space-y-3">
-                                {notices.map((notice) => {
-                                    const isExpired =
-                                        new Date(notice.expiryDate) < new Date(new Date().toDateString());
+                            <div className="space-y-8">
+                                {[...CATEGORIES]
+                                    .sort((a, b) => {
+                                        const aHas = (grouped.get(a.key)?.length || 0) > 0 ? 1 : 0;
+                                        const bHas = (grouped.get(b.key)?.length || 0) > 0 ? 1 : 0;
+                                        return bHas - aHas;
+                                    })
+                                    .map((cat) => {
+                                        const catNotices = grouped.get(cat.key) || [];
+                                        const colors = COLOR_MAP[cat.color] ?? COLOR_MAP.gray;
 
-                                    return (
-                                        <div
-                                            key={notice.id}
-                                            className={`group rounded-xl border p-4 transition-all ${isExpired
-                                                    ? "border-yellow-500/20 bg-yellow-500/5 opacity-60"
-                                                    : "border-white/10 bg-white/5 hover:border-white/20"
-                                                }`}
-                                        >
-                                            <div className="flex items-start justify-between gap-3">
-                                                <div className="min-w-0 flex-1">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <h3 className="text-sm font-semibold text-white truncate">
-                                                            {notice.title}
-                                                        </h3>
-                                                        {notice.priority === "urgent" && (
-                                                            <span className="shrink-0 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-semibold text-red-400 ring-1 ring-red-500/30">
-                                                                URGENT
-                                                            </span>
-                                                        )}
-                                                        {isExpired && (
-                                                            <span className="shrink-0 rounded-full bg-yellow-500/15 px-2 py-0.5 text-[10px] font-semibold text-yellow-400 ring-1 ring-yellow-500/30">
-                                                                EXPIRED
-                                                            </span>
-                                                        )}
+                                        return (
+                                            <CategorySection
+                                                key={cat.key}
+                                                category={cat}
+                                                count={catNotices.length}
+                                            >
+                                                {catNotices.length === 0 ? (
+                                                    <div className="rounded-xl border border-white/5 bg-white/[0.02] py-8 text-center text-sm text-gray-400">
+                                                        No notices.
                                                     </div>
-                                                    <p className="text-xs text-gray-400 line-clamp-2">
-                                                        {notice.description}
-                                                    </p>
-                                                    <div className="mt-2 flex items-center gap-3 text-[11px] text-gray-500">
-                                                        <span>{notice.category}</span>
-                                                        <span>·</span>
-                                                        <span>Expires: {notice.expiryDate}</span>
-                                                    </div>
-                                                </div>
+                                                ) : (
+                                                    <div className="space-y-3">
+                                                        {catNotices.map((notice) => {
+                                                            const isExpired =
+                                                                new Date(notice.expiryDate) < new Date(new Date().toDateString());
 
-                                                <button
-                                                    onClick={() => handleDelete(notice.id)}
-                                                    className="shrink-0 rounded-lg p-2 text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
-                                                    title="Delete notice"
-                                                >
-                                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                                                    </svg>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
+                                                            return (
+                                                                <div
+                                                                    key={notice.id}
+                                                                    className={`group rounded-xl border p-4 transition-all ${isExpired
+                                                                        ? "border-yellow-500/20 bg-yellow-500/5 opacity-60"
+                                                                        : `border-white/10 bg-white/5 hover:border-white/20`
+                                                                        }`}
+                                                                >
+                                                                    <div className="flex items-start justify-between gap-3">
+                                                                        <div className="min-w-0 flex-1">
+                                                                            <div className="flex items-center gap-2 mb-1">
+                                                                                <h3 className="text-sm font-semibold text-white truncate">
+                                                                                    {notice.title}
+                                                                                </h3>
+                                                                                {notice.priority === "urgent" && (
+                                                                                    <span className="shrink-0 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-semibold text-red-400 ring-1 ring-red-500/30">
+                                                                                        URGENT
+                                                                                    </span>
+                                                                                )}
+                                                                                {isExpired && (
+                                                                                    <span className="shrink-0 rounded-full bg-yellow-500/15 px-2 py-0.5 text-[10px] font-semibold text-yellow-400 ring-1 ring-yellow-500/30">
+                                                                                        EXPIRED
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                            <p className="text-xs text-gray-400 line-clamp-2">
+                                                                                {notice.description}
+                                                                            </p>
+                                                                            <div className="mt-2 flex items-center gap-3 text-[11px] text-gray-500">
+                                                                                <span
+                                                                                    className={`inline-flex items-center gap-1 rounded-full ${colors.bg} px-2 py-0.5 text-[10px] font-medium ${colors.text} ring-1 ${colors.ring}`}
+                                                                                >
+                                                                                    {notice.category}
+                                                                                </span>
+                                                                                <span>·</span>
+                                                                                <span>Expires: {notice.expiryDate}</span>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <button
+                                                                            onClick={() => handleDelete(notice.id)}
+                                                                            className="shrink-0 rounded-lg p-2 text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
+                                                                            title="Delete notice"
+                                                                        >
+                                                                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                                                            </svg>
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </CategorySection>
+                                        );
+                                    }
+                                    )}
                             </div>
                         )}
                     </div>

@@ -7,8 +7,10 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase/firebase";
 import type { Notice } from "../types";
+import { CATEGORIES } from "../constants/categories";
 import Navbar from "../components/Navbar";
 import NoticeCard from "../components/NoticeCard";
+import CategorySection from "../components/CategorySection";
 import LoadingSpinner from "../components/LoadingSpinner";
 
 export default function DashboardPage() {
@@ -24,10 +26,10 @@ export default function DashboardPage() {
             const fetched: Notice[] = snapshot.docs
                 .map((doc) => ({ id: doc.id, ...doc.data() } as Notice))
                 .filter((notice) => {
+                    if (!notice.expiryDate) return true;
                     // Hide expired notices
-                    const expiry = new Date(notice.expiryDate);
-                    expiry.setHours(23, 59, 59, 999);
-                    return expiry >= now;
+                    const isExpired = new Date(notice.expiryDate) < new Date(new Date().toDateString());
+                    return !isExpired;
                 });
 
             setNotices(fetched);
@@ -36,6 +38,14 @@ export default function DashboardPage() {
 
         return unsubscribe;
     }, []);
+
+    // Group notices by category
+    const grouped = new Map<string, Notice[]>();
+    for (const notice of notices) {
+        const key = notice.category || "Other";
+        if (!grouped.has(key)) grouped.set(key, []);
+        grouped.get(key)!.push(notice);
+    }
 
     return (
         <div className="min-h-screen bg-gray-950">
@@ -53,23 +63,44 @@ export default function DashboardPage() {
                 {/* Content */}
                 {loading ? (
                     <LoadingSpinner />
-                ) : notices.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-center">
-                        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/5 border border-white/10">
-                            <svg className="h-8 w-8 text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m6.75 12H9.75m3 0H9.75m0 0v3m0-3h3m-6-6h.008v.008H6.75V9.75Z" />
-                            </svg>
-                        </div>
-                        <h3 className="text-lg font-medium text-gray-300">No notices yet</h3>
-                        <p className="mt-1 text-sm text-gray-500">
-                            Check back later for new announcements.
-                        </p>
-                    </div>
                 ) : (
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {notices.map((notice) => (
-                            <NoticeCard key={notice.id} notice={notice} />
-                        ))}
+                    <div className="space-y-8">
+                        {[...CATEGORIES]
+                            .sort((a, b) => {
+                                const aHas = (grouped.get(a.key)?.length || 0) > 0 ? 1 : 0;
+                                const bHas = (grouped.get(b.key)?.length || 0) > 0 ? 1 : 0;
+                                return bHas - aHas;
+                            })
+                            .map((cat) => {
+                                const catNotices = grouped.get(cat.key) || [];
+                                return (
+                                    <CategorySection
+                                        key={cat.key}
+                                        category={cat}
+                                        count={catNotices.length}
+                                    >
+                                        {catNotices.length === 0 ? (
+                                            <div className="rounded-xl border border-white/5 bg-white/[0.02] py-8 text-center text-sm text-gray-400">
+                                                No notices.
+                                            </div>
+                                        ) : (
+                                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                                                {catNotices.map((notice) => {
+                                                    const isExpired = notice.expiryDate ? new Date(notice.expiryDate) < new Date(new Date().toDateString()) : false;
+                                                    return (
+                                                        <NoticeCard
+                                                            key={notice.id}
+                                                            notice={notice}
+                                                            isExpired={isExpired}
+                                                        />
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </CategorySection>
+                                );
+                            }
+                            )}
                     </div>
                 )}
             </main>
