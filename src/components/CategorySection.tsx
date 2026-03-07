@@ -37,7 +37,7 @@ export default function CategorySection({
                 </svg>
             </div>
 
-            <h2 className="text-lg font-semibold text-white group-hover:text-indigo-300 transition-colors">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-indigo-300 transition-colors">
                 {category.key}
             </h2>
 

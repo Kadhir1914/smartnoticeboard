@@ -147,20 +147,20 @@ export default function AdminPage() {
     }
 
     const inputClass =
-        "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-gray-500 outline-none transition-all focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20";
+        "w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 px-4 py-3 text-sm text-gray-900 dark:text-white placeholder-gray-500 outline-none transition-all focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20";
 
     return (
-        <div className="min-h-screen bg-gray-950">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
             <Navbar />
 
             <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
-                <h1 className="text-3xl font-bold text-white mb-8">Admin Panel</h1>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">Admin Panel</h1>
 
                 <div className="grid gap-8 lg:grid-cols-5">
                     {/* Create form */}
                     <div className="lg:col-span-2">
-                        <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-6">
-                            <h2 className="text-lg font-semibold text-white mb-5">
+                        <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 backdrop-blur-xl p-6">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-5">
                                 Create Notice
                             </h2>
 
@@ -171,7 +171,7 @@ export default function AdminPage() {
                                     </div>
                                 )}
                                 <div>
-                                    <label htmlFor="title" className="block text-sm font-medium text-gray-300 mb-1.5">
+                                    <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                                         Title
                                     </label>
                                     <input
@@ -186,7 +186,7 @@ export default function AdminPage() {
                                 </div>
 
                                 <div>
-                                    <label htmlFor="shortDescription" className="block text-sm font-medium text-gray-300 mb-1.5">
+                                    <label htmlFor="shortDescription" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                                         Short Description
                                     </label>
                                     <input
@@ -203,7 +203,7 @@ export default function AdminPage() {
                                 </div>
 
                                 <div>
-                                    <label htmlFor="description" className="block text-sm font-medium text-gray-300 mb-1.5">
+                                    <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                                         Long Description
                                     </label>
                                     <textarea
@@ -219,7 +219,7 @@ export default function AdminPage() {
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label htmlFor="category" className="block text-sm font-medium text-gray-300 mb-1.5">
+                                        <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                                             Category
                                         </label>
                                         <select
@@ -237,7 +237,7 @@ export default function AdminPage() {
                                     </div>
 
                                     <div>
-                                        <label htmlFor="priority" className="block text-sm font-medium text-gray-300 mb-1.5">
+                                        <label htmlFor="priority" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                                             Priority
                                         </label>
                                         <select
@@ -259,7 +259,7 @@ export default function AdminPage() {
                                 </div>
 
                                 <div>
-                                    <label htmlFor="expiryDate" className="block text-sm font-medium text-gray-300 mb-1.5">
+                                    <label htmlFor="expiryDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                                         Expiry Date
                                     </label>
                                     <input
@@ -274,7 +274,7 @@ export default function AdminPage() {
 
                                 {/* Image Upload */}
                                 <div>
-                                    <label htmlFor="imageUpload" className="block text-sm font-medium text-gray-300 mb-1.5">
+                                    <label htmlFor="imageUpload" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                                         Image <span className="text-gray-500">(optional)</span>
                                     </label>
                                     <input
@@ -282,14 +282,14 @@ export default function AdminPage() {
                                         type="file"
                                         accept="image/*"
                                         onChange={handleImageChange}
-                                        className="w-full text-sm text-gray-400 file:mr-4 file:rounded-lg file:border-0 file:bg-indigo-500/20 file:px-4 file:py-2 file:text-sm file:font-medium file:text-indigo-300 file:cursor-pointer hover:file:bg-indigo-500/30 file:transition-colors cursor-pointer"
+                                        className="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:rounded-lg file:border-0 file:bg-indigo-500/20 file:px-4 file:py-2 file:text-sm file:font-medium file:text-indigo-300 file:cursor-pointer hover:file:bg-indigo-500/30 file:transition-colors cursor-pointer"
                                     />
                                     {imagePreview && (
                                         <div className="mt-3 relative">
                                             <img
                                                 src={imagePreview}
                                                 alt="Preview"
-                                                className="w-full h-40 object-cover rounded-xl border border-white/10"
+                                                className="w-full h-40 object-cover rounded-xl border border-black/10 dark:border-white/10"
                                             />
                                             <button
                                                 type="button"
@@ -299,7 +299,7 @@ export default function AdminPage() {
                                                     const fileInput = document.getElementById("imageUpload") as HTMLInputElement;
                                                     if (fileInput) fileInput.value = "";
                                                 }}
-                                                className="absolute top-2 right-2 rounded-full bg-black/60 p-1.5 text-white hover:bg-black/80 transition-colors cursor-pointer"
+                                                className="absolute top-2 right-2 rounded-full bg-black/60 p-1.5 text-gray-900 dark:text-white hover:bg-black/80 transition-colors cursor-pointer"
                                             >
                                                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                                                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -312,7 +312,7 @@ export default function AdminPage() {
                                 <button
                                     type="submit"
                                     disabled={submitting}
-                                    className="w-full rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:shadow-indigo-500/40 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                    className="w-full rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-3 text-sm font-semibold text-gray-900 dark:text-white shadow-lg shadow-indigo-500/25 transition-all hover:shadow-indigo-500/40 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                 >
                                     {submitting ? "Publishing…" : "Publish Notice"}
                                 </button>
@@ -322,7 +322,7 @@ export default function AdminPage() {
 
                     {/* Notices list — grouped by category */}
                     <div className="lg:col-span-3">
-                        <h2 className="text-lg font-semibold text-white mb-4">
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                             All Notices ({notices.length})
                         </h2>
 
@@ -347,7 +347,7 @@ export default function AdminPage() {
                                                 count={catNotices.length}
                                             >
                                                 {catNotices.length === 0 ? (
-                                                    <div className="rounded-xl border border-white/5 bg-white/[0.02] py-8 text-center text-sm text-gray-400">
+                                                    <div className="rounded-xl border border-black/5 dark:border-white/5 bg-white/[0.02] py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                                                         No notices.
                                                     </div>
                                                 ) : (
@@ -361,13 +361,13 @@ export default function AdminPage() {
                                                                     key={notice.id}
                                                                     className={`group rounded-xl border p-4 transition-all ${isExpired
                                                                         ? "border-yellow-500/20 bg-yellow-500/5 opacity-60"
-                                                                        : `border-white/10 bg-white/5 hover:border-white/20`
+                                                                        : `border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 hover:border-white/20`
                                                                         }`}
                                                                 >
                                                                     <div className="flex items-start justify-between gap-3">
                                                                         <div className="min-w-0 flex-1">
                                                                             <div className="flex items-center gap-2 mb-1">
-                                                                                <h3 className="text-sm font-semibold text-white truncate">
+                                                                                <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
                                                                                     {notice.title}
                                                                                 </h3>
                                                                                 {notice.priority === "urgent" && (
@@ -381,7 +381,7 @@ export default function AdminPage() {
                                                                                     </span>
                                                                                 )}
                                                                             </div>
-                                                                            <p className="text-xs text-gray-400 line-clamp-2">
+                                                                            <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
                                                                                 {notice.short_description || notice.description}
                                                                             </p>
                                                                             <div className="mt-2 flex items-center gap-3 text-[11px] text-gray-500">

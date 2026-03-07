@@ -20,7 +20,7 @@ export default function NoticeCard({ notice, isExpired = false }: NoticeCardProp
         >
             <div className={`group relative overflow-hidden rounded-2xl border p-6 transition-all duration-300 hover:-translate-y-0.5 ${isExpired
                 ? "border-yellow-500/20 bg-yellow-500/5 opacity-60"
-                : "border-white/10 bg-white/5 backdrop-blur-lg hover:border-indigo-500/40 hover:shadow-lg hover:shadow-indigo-500/10"
+                : "border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 backdrop-blur-lg hover:border-indigo-500/40 hover:shadow-lg hover:shadow-indigo-500/10"
                 }`}>
                 {/* Priority indicator bar */}
                 {!isExpired && (
@@ -33,7 +33,7 @@ export default function NoticeCard({ notice, isExpired = false }: NoticeCardProp
                 )}
 
                 <div className="flex items-start justify-between gap-3 mb-3">
-                    <h3 className="text-lg font-semibold text-white leading-tight">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white leading-tight">
                         {notice.title}
                     </h3>
 
@@ -55,7 +55,7 @@ export default function NoticeCard({ notice, isExpired = false }: NoticeCardProp
                     </div>
                 </div>
 
-                <p className="text-sm text-gray-400 leading-relaxed mb-4 line-clamp-2">
+                <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mb-4 line-clamp-2">
                     {displayDescription}
                 </p>
 

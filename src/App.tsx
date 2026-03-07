@@ -9,6 +9,7 @@ import NoticeDetailPage from "./pages/NoticeDetailPage";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import AdminRoute from "./routes/AdminRoute";
 import LoadingSpinner from "./components/LoadingSpinner";
+import NotificationToast from "./components/NotificationToast";
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -16,55 +17,58 @@ export default function App() {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <Routes>
-      {/* Public routes */}
-      <Route
-        path="/login"
-        element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />}
-      />
-      <Route
-        path="/register"
-        element={user ? <Navigate to="/dashboard" replace /> : <RegisterPage />}
-      />
+    <>
+      <Routes>
+        {/* Public routes */}
+        <Route
+          path="/login"
+          element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />}
+        />
+        <Route
+          path="/register"
+          element={user ? <Navigate to="/dashboard" replace /> : <RegisterPage />}
+        />
 
-      {/* Protected routes */}
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <DashboardPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/category/:categoryKey"
-        element={
-          <ProtectedRoute>
-            <CategoryPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/category/:categoryKey/notice/:noticeId"
-        element={
-          <ProtectedRoute>
-            <NoticeDetailPage />
-          </ProtectedRoute>
-        }
-      />
+        {/* Protected routes */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/category/:categoryKey"
+          element={
+            <ProtectedRoute>
+              <CategoryPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/category/:categoryKey/notice/:noticeId"
+          element={
+            <ProtectedRoute>
+              <NoticeDetailPage />
+            </ProtectedRoute>
+          }
+        />
 
-      {/* Admin-only route */}
-      <Route
-        path="/admin"
-        element={
-          <AdminRoute>
-            <AdminPage />
-          </AdminRoute>
-        }
-      />
+        {/* Admin-only route */}
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <AdminPage />
+            </AdminRoute>
+          }
+        />
 
-      {/* Catch-all redirect */}
-      <Route path="*" element={<Navigate to={user ? "/dashboard" : "/login"} replace />} />
-    </Routes>
+        {/* Catch-all redirect */}
+        <Route path="*" element={<Navigate to={user ? "/dashboard" : "/login"} replace />} />
+      </Routes>
+      <NotificationToast />
+    </>
   );
 }

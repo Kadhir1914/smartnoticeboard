@@ -50,14 +50,14 @@ export default function DashboardPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-950">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
             <Navbar />
 
             <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
                 {/* Header */}
                 <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-white">Notice Board</h1>
-                    <p className="mt-1 text-gray-400">
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Notice Board</h1>
+                    <p className="mt-1 text-gray-500 dark:text-gray-400">
                         Stay updated with the latest campus announcements
                     </p>
                 </div>
@@ -82,7 +82,7 @@ export default function DashboardPage() {
                                         count={catNotices.length}
                                     >
                                         {catNotices.length === 0 ? (
-                                            <div className="rounded-xl border border-white/5 bg-white/[0.02] py-8 text-center text-sm text-gray-400">
+                                            <div className="rounded-xl border border-black/5 dark:border-white/5 bg-white/[0.02] py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                                                 No notices.
                                             </div>
                                         ) : (

@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:is(.dark *));
+
 /* ── Google Font ─────────────────────────────── */
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap");
 
@@ -24,8 +26,7 @@ html {
 body {
   margin: 0;
   font-family: var(--font-sans);
-  background-color: #030712; /* gray-950 */
-  color: #f9fafb;           /* gray-50 */
+  @apply bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-50;
   min-height: 100vh;
 }
 
