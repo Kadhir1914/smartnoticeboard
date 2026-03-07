@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 
 export default function RegisterPage() {
@@ -10,6 +10,8 @@ export default function RegisterPage() {
     const [loading, setLoading] = useState(false);
     const { register } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
+    const roleFromState = (location.state as { role?: "admin" | "user" })?.role || "user";
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
@@ -19,20 +21,14 @@ export default function RegisterPage() {
             setError("Passwords do not match.");
             return;
         }
-        if (password.length < 6) {
-            setError("Password must be at least 6 characters.");
-            return;
-        }
 
         setLoading(true);
         try {
-            await register(email, password);
+            await register(email, password, roleFromState);
             navigate("/dashboard");
         } catch (err: unknown) {
             const message =
-                err instanceof Error
-                    ? err.message
-                    : "Registration failed. Please try again.";
+                err instanceof Error ? err.message : "Registration failed. Please try again.";
             setError(message);
         } finally {
             setLoading(false);
@@ -43,8 +39,8 @@ export default function RegisterPage() {
         <div className="flex min-h-screen items-center justify-center bg-gray-950 px-4">
             {/* Background glow */}
             <div className="pointer-events-none fixed inset-0 overflow-hidden">
-                <div className="absolute -top-40 -left-40 h-[500px] w-[500px] rounded-full bg-purple-600/20 blur-[120px]" />
-                <div className="absolute -bottom-40 -right-40 h-[400px] w-[400px] rounded-full bg-indigo-600/15 blur-[120px]" />
+                <div className="absolute -top-40 -right-40 h-[500px] w-[500px] rounded-full bg-indigo-600/20 blur-[120px]" />
+                <div className="absolute -bottom-40 -left-40 h-[400px] w-[400px] rounded-full bg-purple-600/15 blur-[120px]" />
             </div>
 
             <div className="relative w-full max-w-md">
@@ -52,11 +48,11 @@ export default function RegisterPage() {
                 <div className="mb-8 text-center">
                     <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/30">
                         <svg className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 0 1-2.25 2.25M16.5 7.5V18a2.25 2.25 0 0 0 2.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 0 0 2.25 2.25h13.5" />
                         </svg>
                     </div>
-                    <h1 className="text-2xl font-bold text-white">Create account</h1>
-                    <p className="mt-1 text-sm text-gray-400">Join SmartNotice today</p>
+                    <h1 className="text-2xl font-bold text-white">Create {roleFromState === "admin" ? "Admin" : "User"} Account</h1>
+                    <p className="mt-1 text-sm text-gray-400">Join SmartNotice</p>
                 </div>
 
                 {/* Card */}
@@ -91,6 +87,7 @@ export default function RegisterPage() {
                                 id="password"
                                 type="password"
                                 required
+                                minLength={6}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-gray-500 outline-none transition-all focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20"
@@ -106,6 +103,7 @@ export default function RegisterPage() {
                                 id="confirmPassword"
                                 type="password"
                                 required
+                                minLength={6}
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
                                 className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-gray-500 outline-none transition-all focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20"

@@ -1,15 +1,5 @@
-import { useEffect, useState, type FormEvent } from "react";
-import {
-    collection,
-    addDoc,
-    deleteDoc,
-    doc,
-    onSnapshot,
-    orderBy,
-    query,
-    serverTimestamp,
-} from "firebase/firestore";
-import { db } from "../firebase/firebase";
+import { useEffect, useState, type FormEvent, type ChangeEvent } from "react";
+import { supabase } from "../lib/supabase";
 import { useAuth } from "../hooks/useAuth";
 import type { Notice } from "../types";
 import { CATEGORIES, COLOR_MAP } from "../constants/categories";
@@ -22,47 +12,113 @@ export default function AdminPage() {
     const [notices, setNotices] = useState<Notice[]>([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const [formError, setFormError] = useState("");
 
     // Form state
     const [title, setTitle] = useState("");
+    const [shortDescription, setShortDescription] = useState("");
     const [description, setDescription] = useState("");
     const [category, setCategory] = useState(CATEGORIES[0].key);
     const [priority, setPriority] = useState<"normal" | "urgent">("normal");
     const [expiryDate, setExpiryDate] = useState("");
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
 
+    // Fetch notices
     useEffect(() => {
-        const q = query(collection(db, "notices"), orderBy("createdAt", "desc"));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const fetched = snapshot.docs.map(
-                (d) => ({ id: d.id, ...d.data() } as Notice)
-            );
-            setNotices(fetched);
+        const fetchNotices = async () => {
+            const { data } = await supabase
+                .from("notices")
+                .select("*")
+                .order("created_at", { ascending: false });
+            if (data) setNotices(data as Notice[]);
             setLoading(false);
-        });
-        return unsubscribe;
+        };
+        fetchNotices();
+
+        // Real-time subscription
+        const channel = supabase
+            .channel("notices-admin")
+            .on(
+                "postgres_changes",
+                { event: "*", schema: "public", table: "notices" },
+                () => {
+                    fetchNotices();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, []);
+
+    const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0] || null;
+        setImageFile(file);
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => setImagePreview(reader.result as string);
+            reader.readAsDataURL(file);
+        } else {
+            setImagePreview(null);
+        }
+    };
 
     const handleCreate = async (e: FormEvent) => {
         e.preventDefault();
         if (!user) return;
         setSubmitting(true);
+        setFormError("");
         try {
-            await addDoc(collection(db, "notices"), {
+            let image_url: string | null = null;
+
+            // Upload image if provided
+            if (imageFile) {
+                const fileExt = imageFile.name.split(".").pop();
+                const fileName = `${Date.now()}_${Math.random().toString(36).slice(2)}.${fileExt}`;
+                const { error: uploadError } = await supabase.storage
+                    .from("notice-images")
+                    .upload(fileName, imageFile, {
+                        contentType: imageFile.type,
+                    });
+
+                if (uploadError) throw uploadError;
+
+                const { data: urlData } = supabase.storage
+                    .from("notice-images")
+                    .getPublicUrl(fileName);
+                image_url = urlData.publicUrl;
+            }
+
+            const { error } = await supabase.from("notices").insert({
                 title,
+                short_description: shortDescription,
                 description,
                 category,
                 priority,
-                expiryDate,
-                createdBy: user.uid,
-                createdAt: serverTimestamp(),
+                expiry_date: expiryDate,
+                created_by: user.id,
+                image_url,
             });
+
+            if (error) throw error;
+
             // Reset form
             setTitle("");
+            setShortDescription("");
             setDescription("");
             setCategory(CATEGORIES[0].key);
             setPriority("normal");
             setExpiryDate("");
-        } catch (err) {
+            setImageFile(null);
+            setImagePreview(null);
+            // Reset file input
+            const fileInput = document.getElementById("imageUpload") as HTMLInputElement;
+            if (fileInput) fileInput.value = "";
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            setFormError(msg);
             console.error("Failed to create notice:", err);
         } finally {
             setSubmitting(false);
@@ -72,7 +128,11 @@ export default function AdminPage() {
     const handleDelete = async (noticeId: string) => {
         if (!confirm("Delete this notice?")) return;
         try {
-            await deleteDoc(doc(db, "notices", noticeId));
+            const { error } = await supabase
+                .from("notices")
+                .delete()
+                .eq("id", noticeId);
+            if (error) throw error;
         } catch (err) {
             console.error("Failed to delete notice:", err);
         }
@@ -105,6 +165,11 @@ export default function AdminPage() {
                             </h2>
 
                             <form onSubmit={handleCreate} className="space-y-4">
+                                {formError && (
+                                    <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400">
+                                        {formError}
+                                    </div>
+                                )}
                                 <div>
                                     <label htmlFor="title" className="block text-sm font-medium text-gray-300 mb-1.5">
                                         Title
@@ -121,8 +186,25 @@ export default function AdminPage() {
                                 </div>
 
                                 <div>
+                                    <label htmlFor="shortDescription" className="block text-sm font-medium text-gray-300 mb-1.5">
+                                        Short Description
+                                    </label>
+                                    <input
+                                        id="shortDescription"
+                                        type="text"
+                                        required
+                                        maxLength={150}
+                                        value={shortDescription}
+                                        onChange={(e) => setShortDescription(e.target.value)}
+                                        className={inputClass}
+                                        placeholder="Brief summary shown on dashboard"
+                                    />
+                                    <p className="mt-1 text-xs text-gray-500">{shortDescription.length}/150</p>
+                                </div>
+
+                                <div>
                                     <label htmlFor="description" className="block text-sm font-medium text-gray-300 mb-1.5">
-                                        Description
+                                        Long Description
                                     </label>
                                     <textarea
                                         id="description"
@@ -131,7 +213,7 @@ export default function AdminPage() {
                                         value={description}
                                         onChange={(e) => setDescription(e.target.value)}
                                         className={inputClass + " resize-none"}
-                                        placeholder="Notice description"
+                                        placeholder="Full notice details (shown on detail page)"
                                     />
                                 </div>
 
@@ -190,6 +272,43 @@ export default function AdminPage() {
                                     />
                                 </div>
 
+                                {/* Image Upload */}
+                                <div>
+                                    <label htmlFor="imageUpload" className="block text-sm font-medium text-gray-300 mb-1.5">
+                                        Image <span className="text-gray-500">(optional)</span>
+                                    </label>
+                                    <input
+                                        id="imageUpload"
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleImageChange}
+                                        className="w-full text-sm text-gray-400 file:mr-4 file:rounded-lg file:border-0 file:bg-indigo-500/20 file:px-4 file:py-2 file:text-sm file:font-medium file:text-indigo-300 file:cursor-pointer hover:file:bg-indigo-500/30 file:transition-colors cursor-pointer"
+                                    />
+                                    {imagePreview && (
+                                        <div className="mt-3 relative">
+                                            <img
+                                                src={imagePreview}
+                                                alt="Preview"
+                                                className="w-full h-40 object-cover rounded-xl border border-white/10"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setImageFile(null);
+                                                    setImagePreview(null);
+                                                    const fileInput = document.getElementById("imageUpload") as HTMLInputElement;
+                                                    if (fileInput) fileInput.value = "";
+                                                }}
+                                                className="absolute top-2 right-2 rounded-full bg-black/60 p-1.5 text-white hover:bg-black/80 transition-colors cursor-pointer"
+                                            >
+                                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+
                                 <button
                                     type="submit"
                                     disabled={submitting}
@@ -235,7 +354,7 @@ export default function AdminPage() {
                                                     <div className="space-y-3">
                                                         {catNotices.map((notice) => {
                                                             const isExpired =
-                                                                new Date(notice.expiryDate) < new Date(new Date().toDateString());
+                                                                new Date(notice.expiry_date) < new Date(new Date().toDateString());
 
                                                             return (
                                                                 <div
@@ -263,7 +382,7 @@ export default function AdminPage() {
                                                                                 )}
                                                                             </div>
                                                                             <p className="text-xs text-gray-400 line-clamp-2">
-                                                                                {notice.description}
+                                                                                {notice.short_description || notice.description}
                                                                             </p>
                                                                             <div className="mt-2 flex items-center gap-3 text-[11px] text-gray-500">
                                                                                 <span
@@ -272,7 +391,13 @@ export default function AdminPage() {
                                                                                     {notice.category}
                                                                                 </span>
                                                                                 <span>·</span>
-                                                                                <span>Expires: {notice.expiryDate}</span>
+                                                                                <span>Expires: {notice.expiry_date}</span>
+                                                                                {notice.image_url && (
+                                                                                    <>
+                                                                                        <span>·</span>
+                                                                                        <span className="text-indigo-400">📷 Has image</span>
+                                                                                    </>
+                                                                                )}
                                                                             </div>
                                                                         </div>
 

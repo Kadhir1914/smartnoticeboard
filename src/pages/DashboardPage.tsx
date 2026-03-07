@@ -1,11 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-    collection,
-    onSnapshot,
-    orderBy,
-    query,
-} from "firebase/firestore";
-import { db } from "../firebase/firebase";
+import { supabase } from "../lib/supabase";
 import type { Notice } from "../types";
 import { CATEGORIES } from "../constants/categories";
 import Navbar from "../components/Navbar";
@@ -18,25 +12,33 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const q = query(collection(db, "notices"), orderBy("createdAt", "desc"));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const now = new Date();
-            now.setHours(0, 0, 0, 0);
-
-            const fetched: Notice[] = snapshot.docs
-                .map((doc) => ({ id: doc.id, ...doc.data() } as Notice))
-                .filter((notice) => {
-                    if (!notice.expiryDate) return true;
-                    // Hide expired notices
-                    const isExpired = new Date(notice.expiryDate) < new Date(new Date().toDateString());
-                    return !isExpired;
-                });
-
-            setNotices(fetched);
+        const fetchNotices = async () => {
+            const today = new Date().toISOString().split("T")[0];
+            const { data } = await supabase
+                .from("notices")
+                .select("*")
+                .gte("expiry_date", today)
+                .order("created_at", { ascending: false });
+            if (data) setNotices(data as Notice[]);
             setLoading(false);
-        });
+        };
+        fetchNotices();
 
-        return unsubscribe;
+        // Real-time subscription
+        const channel = supabase
+            .channel("notices-dashboard")
+            .on(
+                "postgres_changes",
+                { event: "*", schema: "public", table: "notices" },
+                () => {
+                    fetchNotices();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, []);
 
     // Group notices by category
@@ -86,7 +88,7 @@ export default function DashboardPage() {
                                         ) : (
                                             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                                                 {catNotices.map((notice) => {
-                                                    const isExpired = notice.expiryDate ? new Date(notice.expiryDate) < new Date(new Date().toDateString()) : false;
+                                                    const isExpired = notice.expiry_date ? new Date(notice.expiry_date) < new Date(new Date().toDateString()) : false;
                                                     return (
                                                         <NoticeCard
                                                             key={notice.id}
@@ -99,8 +101,7 @@ export default function DashboardPage() {
                                         )}
                                     </CategorySection>
                                 );
-                            }
-                            )}
+                            })}
                     </div>
                 )}
             </main>

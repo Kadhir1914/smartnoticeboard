@@ -5,15 +5,8 @@ import {
     useState,
     type ReactNode,
 } from "react";
-import {
-    onAuthStateChanged,
-    signInWithEmailAndPassword,
-    createUserWithEmailAndPassword,
-    signOut,
-    type User,
-} from "firebase/auth";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
-import { auth, db } from "../firebase/firebase";
+import type { User } from "@supabase/supabase-js";
+import { supabase } from "../lib/supabase";
 import type { UserProfile } from "../types";
 
 interface AuthContextType {
@@ -21,7 +14,7 @@ interface AuthContextType {
     userProfile: UserProfile | null;
     loading: boolean;
     login: (email: string, password: string) => Promise<void>;
-    register: (email: string, password: string) => Promise<void>;
+    register: (email: string, password: string, role?: "admin" | "user") => Promise<void>;
     logout: () => Promise<void>;
 }
 
@@ -32,47 +25,73 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(true);
 
+    const fetchProfile = async (userId: string) => {
+        const { data } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", userId)
+            .single();
+        if (data) {
+            setUserProfile(data as UserProfile);
+        }
+    };
+
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-            setUser(firebaseUser);
-            if (firebaseUser) {
-                const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
-                if (userDoc.exists()) {
-                    setUserProfile(userDoc.data() as UserProfile);
-                }
+        // Get initial session
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            const currentUser = session?.user ?? null;
+            setUser(currentUser);
+            if (currentUser) {
+                fetchProfile(currentUser.id);
+            }
+            setLoading(false);
+        });
+
+        // Listen for auth changes
+        const {
+            data: { subscription },
+        } = supabase.auth.onAuthStateChange((_event, session) => {
+            const currentUser = session?.user ?? null;
+            setUser(currentUser);
+            if (currentUser) {
+                fetchProfile(currentUser.id);
             } else {
                 setUserProfile(null);
             }
             setLoading(false);
         });
-        return unsubscribe;
+
+        return () => subscription.unsubscribe();
     }, []);
 
     const login = async (email: string, password: string) => {
-        await signInWithEmailAndPassword(auth, email, password);
+        const { error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+        });
+        if (error) throw error;
     };
 
-    const register = async (email: string, password: string) => {
-        const credential = await createUserWithEmailAndPassword(
-            auth,
-            email,
-            password
-        );
-        const newUser: Omit<UserProfile, "createdAt"> & { createdAt: ReturnType<typeof serverTimestamp> } = {
-            uid: credential.user.uid,
-            email: credential.user.email!,
-            role: "user",
-            createdAt: serverTimestamp(),
-        };
-        await setDoc(doc(db, "users", credential.user.uid), newUser);
-        setUserProfile({
-            ...newUser,
-            createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
-        } as unknown as UserProfile);
+    const register = async (email: string, password: string, role: "admin" | "user" = "user") => {
+        const { data, error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        if (data.user) {
+            await supabase.from("profiles").insert({
+                id: data.user.id,
+                email: data.user.email,
+                role,
+            });
+            setUserProfile({
+                id: data.user.id,
+                email: data.user.email!,
+                role,
+                created_at: new Date().toISOString(),
+            });
+        }
     };
 
     const logout = async () => {
-        await signOut(auth);
+        await supabase.auth.signOut();
         setUser(null);
         setUserProfile(null);
     };

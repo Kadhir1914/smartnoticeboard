@@ -4,6 +4,8 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import DashboardPage from "./pages/DashboardPage";
 import AdminPage from "./pages/AdminPage";
+import CategoryPage from "./pages/CategoryPage";
+import NoticeDetailPage from "./pages/NoticeDetailPage";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import AdminRoute from "./routes/AdminRoute";
 import LoadingSpinner from "./components/LoadingSpinner";
@@ -31,6 +33,22 @@ export default function App() {
         element={
           <ProtectedRoute>
             <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/category/:categoryKey"
+        element={
+          <ProtectedRoute>
+            <CategoryPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/category/:categoryKey/notice/:noticeId"
+        element={
+          <ProtectedRoute>
+            <NoticeDetailPage />
           </ProtectedRoute>
         }
       />
