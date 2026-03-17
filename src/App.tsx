@@ -6,6 +6,7 @@ import DashboardPage from "./pages/DashboardPage";
 import AdminPage from "./pages/AdminPage";
 import CategoryPage from "./pages/CategoryPage";
 import NoticeDetailPage from "./pages/NoticeDetailPage";
+import ProfilePage from "./pages/ProfilePage";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import AdminRoute from "./routes/AdminRoute";
 import LoadingSpinner from "./components/LoadingSpinner";
@@ -51,6 +52,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <NoticeDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
             </ProtectedRoute>
           }
         />

@@ -1,8 +1,9 @@
 import { useEffect, useState, type FormEvent, type ChangeEvent } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../hooks/useAuth";
-import type { Notice } from "../types";
+import type { Notice, UserProfile } from "../types";
 import { CATEGORIES, COLOR_MAP } from "../constants/categories";
+import { DEPARTMENTS } from "../constants/departments";
 import Navbar from "../components/Navbar";
 import CategorySection from "../components/CategorySection";
 import LoadingSpinner from "../components/LoadingSpinner";
@@ -14,11 +15,22 @@ export default function AdminPage() {
     const [submitting, setSubmitting] = useState(false);
     const [formError, setFormError] = useState("");
 
+    // Tab state: "notices" or "users"
+    const [activeTab, setActiveTab] = useState<"notices" | "users">("notices");
+
+    // User management state
+    const [users, setUsers] = useState<UserProfile[]>([]);
+    const [usersLoading, setUsersLoading] = useState(false);
+    const [roleChanges, setRoleChanges] = useState<Record<string, "admin" | "user">>({});
+    const [savingRoles, setSavingRoles] = useState(false);
+    const [roleSuccess, setRoleSuccess] = useState("");
+
     // Form state
     const [title, setTitle] = useState("");
     const [shortDescription, setShortDescription] = useState("");
     const [description, setDescription] = useState("");
     const [category, setCategory] = useState(CATEGORIES[0].key);
+    const [department, setDepartment] = useState(DEPARTMENTS[0]);
     const [priority, setPriority] = useState<"normal" | "urgent">("normal");
     const [expiryDate, setExpiryDate] = useState("");
     const [imageFile, setImageFile] = useState<File | null>(null);
@@ -52,6 +64,54 @@ export default function AdminPage() {
             supabase.removeChannel(channel);
         };
     }, []);
+
+    // Fetch users when tab switches to "users"
+    useEffect(() => {
+        if (activeTab === "users") {
+            fetchUsers();
+        }
+    }, [activeTab]);
+
+    const fetchUsers = async () => {
+        setUsersLoading(true);
+        const { data } = await supabase
+            .from("profiles")
+            .select("*")
+            .order("created_at", { ascending: false });
+        if (data) {
+            setUsers(data as UserProfile[]);
+            // Initialize role changes map
+            const changes: Record<string, "admin" | "user"> = {};
+            data.forEach((u: UserProfile) => {
+                changes[u.id] = u.role;
+            });
+            setRoleChanges(changes);
+        }
+        setUsersLoading(false);
+    };
+
+    const handleSaveRoles = async () => {
+        setSavingRoles(true);
+        setRoleSuccess("");
+        try {
+            const updates = users
+                .filter(u => roleChanges[u.id] !== u.role)
+                .map(u =>
+                    supabase
+                        .from("profiles")
+                        .update({ role: roleChanges[u.id] })
+                        .eq("id", u.id)
+                );
+            await Promise.all(updates);
+            await fetchUsers();
+            setRoleSuccess("Roles updated successfully!");
+            setTimeout(() => setRoleSuccess(""), 3000);
+        } catch (err) {
+            console.error("Failed to update roles:", err);
+        } finally {
+            setSavingRoles(false);
+        }
+    };
 
     const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0] || null;
@@ -96,6 +156,7 @@ export default function AdminPage() {
                 short_description: shortDescription,
                 description,
                 category,
+                department,
                 priority,
                 expiry_date: expiryDate,
                 created_by: user.id,
@@ -109,6 +170,7 @@ export default function AdminPage() {
             setShortDescription("");
             setDescription("");
             setCategory(CATEGORIES[0].key);
+            setDepartment(DEPARTMENTS[0]);
             setPriority("normal");
             setExpiryDate("");
             setImageFile(null);
@@ -149,281 +211,401 @@ export default function AdminPage() {
     const inputClass =
         "w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 px-4 py-3 text-sm text-gray-900 dark:text-white placeholder-gray-500 outline-none transition-all focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20";
 
+    const tabClass = (tab: "notices" | "users") =>
+        `px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer ${activeTab === tab
+            ? "bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/30"
+            : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+        }`;
+
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
             <Navbar />
 
             <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">Admin Panel</h1>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">Admin Panel</h1>
 
-                <div className="grid gap-8 lg:grid-cols-5">
-                    {/* Create form */}
-                    <div className="lg:col-span-2">
-                        <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 backdrop-blur-xl p-6">
-                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-5">
-                                Create Notice
-                            </h2>
+                {/* Tab Bar */}
+                <div className="flex gap-2 mb-8">
+                    <button onClick={() => setActiveTab("notices")} className={tabClass("notices")}>
+                        📋 Notices
+                    </button>
+                    <button onClick={() => setActiveTab("users")} className={tabClass("users")}>
+                        👥 User Management
+                    </button>
+                </div>
 
-                            <form onSubmit={handleCreate} className="space-y-4">
-                                {formError && (
-                                    <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400">
-                                        {formError}
-                                    </div>
-                                )}
-                                <div>
-                                    <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                                        Title
-                                    </label>
-                                    <input
-                                        id="title"
-                                        type="text"
-                                        required
-                                        value={title}
-                                        onChange={(e) => setTitle(e.target.value)}
-                                        className={inputClass}
-                                        placeholder="Notice title"
-                                    />
-                                </div>
+                {/* ─── NOTICES TAB ─── */}
+                {activeTab === "notices" && (
+                    <div className="grid gap-8 lg:grid-cols-5">
+                        {/* Create form */}
+                        <div className="lg:col-span-2">
+                            <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 backdrop-blur-xl p-6">
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-5">
+                                    Create Notice
+                                </h2>
 
-                                <div>
-                                    <label htmlFor="shortDescription" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                                        Short Description
-                                    </label>
-                                    <input
-                                        id="shortDescription"
-                                        type="text"
-                                        required
-                                        maxLength={150}
-                                        value={shortDescription}
-                                        onChange={(e) => setShortDescription(e.target.value)}
-                                        className={inputClass}
-                                        placeholder="Brief summary shown on dashboard"
-                                    />
-                                    <p className="mt-1 text-xs text-gray-500">{shortDescription.length}/150</p>
-                                </div>
-
-                                <div>
-                                    <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                                        Long Description
-                                    </label>
-                                    <textarea
-                                        id="description"
-                                        required
-                                        rows={4}
-                                        value={description}
-                                        onChange={(e) => setDescription(e.target.value)}
-                                        className={inputClass + " resize-none"}
-                                        placeholder="Full notice details (shown on detail page)"
-                                    />
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
+                                <form onSubmit={handleCreate} className="space-y-4">
+                                    {formError && (
+                                        <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400">
+                                            {formError}
+                                        </div>
+                                    )}
                                     <div>
-                                        <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                                            Category
+                                        <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                            Title
+                                        </label>
+                                        <input
+                                            id="title"
+                                            type="text"
+                                            required
+                                            value={title}
+                                            onChange={(e) => setTitle(e.target.value)}
+                                            className={inputClass}
+                                            placeholder="Notice title"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="shortDescription" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                            Short Description
+                                        </label>
+                                        <input
+                                            id="shortDescription"
+                                            type="text"
+                                            required
+                                            maxLength={150}
+                                            value={shortDescription}
+                                            onChange={(e) => setShortDescription(e.target.value)}
+                                            className={inputClass}
+                                            placeholder="Brief summary shown on dashboard"
+                                        />
+                                        <p className="mt-1 text-xs text-gray-500">{shortDescription.length}/150</p>
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                            Long Description
+                                        </label>
+                                        <textarea
+                                            id="description"
+                                            required
+                                            rows={4}
+                                            value={description}
+                                            onChange={(e) => setDescription(e.target.value)}
+                                            className={inputClass + " resize-none"}
+                                            placeholder="Full notice details (shown on detail page)"
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                                Category
+                                            </label>
+                                            <select
+                                                id="category"
+                                                value={category}
+                                                onChange={(e) => setCategory(e.target.value)}
+                                                className={inputClass}
+                                            >
+                                                {CATEGORIES.map((c) => (
+                                                    <option key={c.key} value={c.key} className="bg-gray-900">
+                                                        {c.key}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label htmlFor="priority" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                                Priority
+                                            </label>
+                                            <select
+                                                id="priority"
+                                                value={priority}
+                                                onChange={(e) =>
+                                                    setPriority(e.target.value as "normal" | "urgent")
+                                                }
+                                                className={inputClass}
+                                            >
+                                                <option value="normal" className="bg-gray-900">
+                                                    Normal
+                                                </option>
+                                                <option value="urgent" className="bg-gray-900">
+                                                    Urgent
+                                                </option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {/* Department dropdown */}
+                                    <div>
+                                        <label htmlFor="department" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                            Target Department
                                         </label>
                                         <select
-                                            id="category"
-                                            value={category}
-                                            onChange={(e) => setCategory(e.target.value)}
+                                            id="department"
+                                            value={department}
+                                            onChange={(e) => setDepartment(e.target.value)}
                                             className={inputClass}
                                         >
-                                            {CATEGORIES.map((c) => (
-                                                <option key={c.key} value={c.key} className="bg-gray-900">
-                                                    {c.key}
+                                            {DEPARTMENTS.map((dept) => (
+                                                <option key={dept} value={dept} className="bg-gray-900">
+                                                    {dept}{dept === "General" ? " (All Departments)" : ""}
                                                 </option>
                                             ))}
                                         </select>
                                     </div>
 
                                     <div>
-                                        <label htmlFor="priority" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                                            Priority
+                                        <label htmlFor="expiryDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                            Expiry Date
                                         </label>
-                                        <select
-                                            id="priority"
-                                            value={priority}
-                                            onChange={(e) =>
-                                                setPriority(e.target.value as "normal" | "urgent")
-                                            }
+                                        <input
+                                            id="expiryDate"
+                                            type="date"
+                                            required
+                                            value={expiryDate}
+                                            onChange={(e) => setExpiryDate(e.target.value)}
                                             className={inputClass}
-                                        >
-                                            <option value="normal" className="bg-gray-900">
-                                                Normal
-                                            </option>
-                                            <option value="urgent" className="bg-gray-900">
-                                                Urgent
-                                            </option>
-                                        </select>
+                                        />
                                     </div>
-                                </div>
 
-                                <div>
-                                    <label htmlFor="expiryDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                                        Expiry Date
-                                    </label>
-                                    <input
-                                        id="expiryDate"
-                                        type="date"
-                                        required
-                                        value={expiryDate}
-                                        onChange={(e) => setExpiryDate(e.target.value)}
-                                        className={inputClass}
-                                    />
-                                </div>
+                                    {/* Image Upload */}
+                                    <div>
+                                        <label htmlFor="imageUpload" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                            Image <span className="text-gray-500">(optional)</span>
+                                        </label>
+                                        <input
+                                            id="imageUpload"
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleImageChange}
+                                            className="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:rounded-lg file:border-0 file:bg-indigo-500/20 file:px-4 file:py-2 file:text-sm file:font-medium file:text-indigo-300 file:cursor-pointer hover:file:bg-indigo-500/30 file:transition-colors cursor-pointer"
+                                        />
+                                        {imagePreview && (
+                                            <div className="mt-3 relative">
+                                                <img
+                                                    src={imagePreview}
+                                                    alt="Preview"
+                                                    className="w-full h-40 object-cover rounded-xl border border-black/10 dark:border-white/10"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setImageFile(null);
+                                                        setImagePreview(null);
+                                                        const fileInput = document.getElementById("imageUpload") as HTMLInputElement;
+                                                        if (fileInput) fileInput.value = "";
+                                                    }}
+                                                    className="absolute top-2 right-2 rounded-full bg-black/60 p-1.5 text-white hover:bg-black/80 transition-colors cursor-pointer"
+                                                >
+                                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
 
-                                {/* Image Upload */}
-                                <div>
-                                    <label htmlFor="imageUpload" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                                        Image <span className="text-gray-500">(optional)</span>
-                                    </label>
-                                    <input
-                                        id="imageUpload"
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={handleImageChange}
-                                        className="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:rounded-lg file:border-0 file:bg-indigo-500/20 file:px-4 file:py-2 file:text-sm file:font-medium file:text-indigo-300 file:cursor-pointer hover:file:bg-indigo-500/30 file:transition-colors cursor-pointer"
-                                    />
-                                    {imagePreview && (
-                                        <div className="mt-3 relative">
-                                            <img
-                                                src={imagePreview}
-                                                alt="Preview"
-                                                className="w-full h-40 object-cover rounded-xl border border-black/10 dark:border-white/10"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setImageFile(null);
-                                                    setImagePreview(null);
-                                                    const fileInput = document.getElementById("imageUpload") as HTMLInputElement;
-                                                    if (fileInput) fileInput.value = "";
-                                                }}
-                                                className="absolute top-2 right-2 rounded-full bg-black/60 p-1.5 text-gray-900 dark:text-white hover:bg-black/80 transition-colors cursor-pointer"
-                                            >
-                                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
+                                    <button
+                                        type="submit"
+                                        disabled={submitting}
+                                        className="w-full rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:shadow-indigo-500/40 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                    >
+                                        {submitting ? "Publishing…" : "Publish Notice"}
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
 
-                                <button
-                                    type="submit"
-                                    disabled={submitting}
-                                    className="w-full rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-3 text-sm font-semibold text-gray-900 dark:text-white shadow-lg shadow-indigo-500/25 transition-all hover:shadow-indigo-500/40 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                >
-                                    {submitting ? "Publishing…" : "Publish Notice"}
-                                </button>
-                            </form>
+                        {/* Notices list — grouped by category */}
+                        <div className="lg:col-span-3">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                                All Notices ({notices.length})
+                            </h2>
+
+                            {loading ? (
+                                <LoadingSpinner />
+                            ) : (
+                                <div className="space-y-8">
+                                    {[...CATEGORIES]
+                                        .sort((a, b) => {
+                                            const aHas = (grouped.get(a.key)?.length || 0) > 0 ? 1 : 0;
+                                            const bHas = (grouped.get(b.key)?.length || 0) > 0 ? 1 : 0;
+                                            return bHas - aHas;
+                                        })
+                                        .map((cat) => {
+                                            const catNotices = grouped.get(cat.key) || [];
+                                            const colors = COLOR_MAP[cat.color] ?? COLOR_MAP.gray;
+
+                                            return (
+                                                <CategorySection
+                                                    key={cat.key}
+                                                    category={cat}
+                                                    count={catNotices.length}
+                                                >
+                                                    {catNotices.length === 0 ? (
+                                                        <div className="rounded-xl border border-black/5 dark:border-white/5 bg-white/[0.02] py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                                                            No notices.
+                                                        </div>
+                                                    ) : (
+                                                        <div className="space-y-3">
+                                                            {catNotices.map((notice) => {
+                                                                const isExpired =
+                                                                    new Date(notice.expiry_date) < new Date(new Date().toDateString());
+
+                                                                return (
+                                                                    <div
+                                                                        key={notice.id}
+                                                                        className={`group rounded-xl border p-4 transition-all ${isExpired
+                                                                            ? "border-yellow-500/20 bg-yellow-500/5 opacity-60"
+                                                                            : `border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 hover:border-white/20`
+                                                                            }`}
+                                                                    >
+                                                                        <div className="flex items-start justify-between gap-3">
+                                                                            <div className="min-w-0 flex-1">
+                                                                                <div className="flex items-center gap-2 mb-1">
+                                                                                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                                                                                        {notice.title}
+                                                                                    </h3>
+                                                                                    {notice.priority === "urgent" && (
+                                                                                        <span className="shrink-0 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-semibold text-red-400 ring-1 ring-red-500/30">
+                                                                                            URGENT
+                                                                                        </span>
+                                                                                    )}
+                                                                                    {isExpired && (
+                                                                                        <span className="shrink-0 rounded-full bg-yellow-500/15 px-2 py-0.5 text-[10px] font-semibold text-yellow-400 ring-1 ring-yellow-500/30">
+                                                                                            EXPIRED
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
+                                                                                <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
+                                                                                    {notice.short_description || notice.description}
+                                                                                </p>
+                                                                                <div className="mt-2 flex items-center gap-3 text-[11px] text-gray-500 flex-wrap">
+                                                                                    <span
+                                                                                        className={`inline-flex items-center gap-1 rounded-full ${colors.bg} px-2 py-0.5 text-[10px] font-medium ${colors.text} ring-1 ${colors.ring}`}
+                                                                                    >
+                                                                                        {notice.category}
+                                                                                    </span>
+                                                                                    <span>·</span>
+                                                                                    <span className="inline-flex items-center gap-1 rounded-full bg-teal-500/10 px-2 py-0.5 text-[10px] font-medium text-teal-300 ring-1 ring-teal-500/30">
+                                                                                        {notice.department || "General"}
+                                                                                    </span>
+                                                                                    <span>·</span>
+                                                                                    <span>Expires: {notice.expiry_date}</span>
+                                                                                    {notice.image_url && (
+                                                                                        <>
+                                                                                            <span>·</span>
+                                                                                            <span className="text-indigo-400">📷 Has image</span>
+                                                                                        </>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+
+                                                                            <button
+                                                                                onClick={() => handleDelete(notice.id)}
+                                                                                className="shrink-0 rounded-lg p-2 text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
+                                                                                title="Delete notice"
+                                                                            >
+                                                                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                                                                </svg>
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
+                                                </CategorySection>
+                                            );
+                                        }
+                                        )}
+                                </div>
+                            )}
                         </div>
                     </div>
+                )}
 
-                    {/* Notices list — grouped by category */}
-                    <div className="lg:col-span-3">
-                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                            All Notices ({notices.length})
-                        </h2>
+                {/* ─── USER MANAGEMENT TAB ─── */}
+                {activeTab === "users" && (
+                    <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 backdrop-blur-xl p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                All Users ({users.length})
+                            </h2>
+                            <button
+                                onClick={handleSaveRoles}
+                                disabled={savingRoles}
+                                className="rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:shadow-indigo-500/40 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                            >
+                                {savingRoles ? "Saving…" : "Save Changes"}
+                            </button>
+                        </div>
 
-                        {loading ? (
+                        {roleSuccess && (
+                            <div className="mb-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-3 text-sm text-emerald-400">
+                                {roleSuccess}
+                            </div>
+                        )}
+
+                        {usersLoading ? (
                             <LoadingSpinner />
                         ) : (
-                            <div className="space-y-8">
-                                {[...CATEGORIES]
-                                    .sort((a, b) => {
-                                        const aHas = (grouped.get(a.key)?.length || 0) > 0 ? 1 : 0;
-                                        const bHas = (grouped.get(b.key)?.length || 0) > 0 ? 1 : 0;
-                                        return bHas - aHas;
-                                    })
-                                    .map((cat) => {
-                                        const catNotices = grouped.get(cat.key) || [];
-                                        const colors = COLOR_MAP[cat.color] ?? COLOR_MAP.gray;
+                            <div className="space-y-3">
+                                {users.map((u) => (
+                                    <div
+                                        key={u.id}
+                                        className="flex items-center justify-between gap-4 rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 p-4 transition-all hover:border-white/20"
+                                    >
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex items-center gap-2 mb-0.5">
+                                                {/* Avatar */}
+                                                <div className="h-9 w-9 shrink-0 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold uppercase overflow-hidden">
+                                                    {u.avatar_url ? (
+                                                        <img src={u.avatar_url} alt={u.name} className="h-full w-full object-cover" />
+                                                    ) : (
+                                                        (u.name?.[0] || u.email[0])
+                                                    )}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                                                        {u.name || "Unnamed"}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{u.email}</p>
+                                                </div>
+                                            </div>
+                                            <div className="mt-1 flex items-center gap-2 text-[11px] text-gray-500">
+                                                <span className="inline-flex items-center rounded-full bg-teal-500/10 px-2 py-0.5 text-teal-300 ring-1 ring-teal-500/30">
+                                                    {u.department || "General"}
+                                                </span>
+                                            </div>
+                                        </div>
 
-                                        return (
-                                            <CategorySection
-                                                key={cat.key}
-                                                category={cat}
-                                                count={catNotices.length}
-                                            >
-                                                {catNotices.length === 0 ? (
-                                                    <div className="rounded-xl border border-black/5 dark:border-white/5 bg-white/[0.02] py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                                                        No notices.
-                                                    </div>
-                                                ) : (
-                                                    <div className="space-y-3">
-                                                        {catNotices.map((notice) => {
-                                                            const isExpired =
-                                                                new Date(notice.expiry_date) < new Date(new Date().toDateString());
-
-                                                            return (
-                                                                <div
-                                                                    key={notice.id}
-                                                                    className={`group rounded-xl border p-4 transition-all ${isExpired
-                                                                        ? "border-yellow-500/20 bg-yellow-500/5 opacity-60"
-                                                                        : `border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 hover:border-white/20`
-                                                                        }`}
-                                                                >
-                                                                    <div className="flex items-start justify-between gap-3">
-                                                                        <div className="min-w-0 flex-1">
-                                                                            <div className="flex items-center gap-2 mb-1">
-                                                                                <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                                                                                    {notice.title}
-                                                                                </h3>
-                                                                                {notice.priority === "urgent" && (
-                                                                                    <span className="shrink-0 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-semibold text-red-400 ring-1 ring-red-500/30">
-                                                                                        URGENT
-                                                                                    </span>
-                                                                                )}
-                                                                                {isExpired && (
-                                                                                    <span className="shrink-0 rounded-full bg-yellow-500/15 px-2 py-0.5 text-[10px] font-semibold text-yellow-400 ring-1 ring-yellow-500/30">
-                                                                                        EXPIRED
-                                                                                    </span>
-                                                                                )}
-                                                                            </div>
-                                                                            <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
-                                                                                {notice.short_description || notice.description}
-                                                                            </p>
-                                                                            <div className="mt-2 flex items-center gap-3 text-[11px] text-gray-500">
-                                                                                <span
-                                                                                    className={`inline-flex items-center gap-1 rounded-full ${colors.bg} px-2 py-0.5 text-[10px] font-medium ${colors.text} ring-1 ${colors.ring}`}
-                                                                                >
-                                                                                    {notice.category}
-                                                                                </span>
-                                                                                <span>·</span>
-                                                                                <span>Expires: {notice.expiry_date}</span>
-                                                                                {notice.image_url && (
-                                                                                    <>
-                                                                                        <span>·</span>
-                                                                                        <span className="text-indigo-400">📷 Has image</span>
-                                                                                    </>
-                                                                                )}
-                                                                            </div>
-                                                                        </div>
-
-                                                                        <button
-                                                                            onClick={() => handleDelete(notice.id)}
-                                                                            className="shrink-0 rounded-lg p-2 text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
-                                                                            title="Delete notice"
-                                                                        >
-                                                                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                                                                                <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                                                                            </svg>
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                )}
-                                            </CategorySection>
-                                        );
-                                    }
-                                    )}
+                                        <select
+                                            value={roleChanges[u.id] || u.role}
+                                            onChange={(e) =>
+                                                setRoleChanges((prev) => ({
+                                                    ...prev,
+                                                    [u.id]: e.target.value as "admin" | "user",
+                                                }))
+                                            }
+                                            className={`rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 px-3 py-2 text-sm text-gray-900 dark:text-white outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20 ${roleChanges[u.id] !== u.role
+                                                    ? "ring-2 ring-amber-500/40 border-amber-500/30"
+                                                    : ""
+                                                }`}
+                                        >
+                                            <option value="user" className="bg-gray-900">User</option>
+                                            <option value="admin" className="bg-gray-900">Admin</option>
+                                        </select>
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </div>
-                </div>
+                )}
             </main>
         </div>
     );

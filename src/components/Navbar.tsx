@@ -3,7 +3,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useTheme } from "../contexts/ThemeContext";
 
 export default function Navbar() {
-    const { userProfile, logout } = useAuth();
+    const { userProfile } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const location = useLocation();
 
@@ -15,6 +15,10 @@ export default function Navbar() {
             : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
         }`;
 
+    const initials = userProfile?.name
+        ? userProfile.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
+        : userProfile?.email?.[0]?.toUpperCase() || "?";
+
     return (
         <nav className="sticky top-0 z-50 border-b border-black/10 dark:border-white/10 bg-gray-950/80 backdrop-blur-xl">
             <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
@@ -23,7 +27,7 @@ export default function Navbar() {
                     <Link to="/dashboard" className="flex items-center gap-2.5 group">
                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/25 transition-shadow group-hover:shadow-indigo-500/40">
                             <svg
-                                className="h-4 w-4 text-gray-900 dark:text-white"
+                                className="h-4 w-4 text-white"
                                 fill="none"
                                 viewBox="0 0 24 24"
                                 strokeWidth={2}
@@ -51,16 +55,11 @@ export default function Navbar() {
                                 Admin
                             </Link>
                         )}
-                        <button
-                            onClick={logout}
-                            className="ml-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all duration-200 cursor-pointer"
-                        >
-                            Logout
-                        </button>
+
                         {/* Theme Toggle */}
                         <button
                             onClick={toggleTheme}
-                            className="ml-2 p-2 rounded-lg text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-all duration-200 cursor-pointer"
+                            className="ml-1 p-2 rounded-lg text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-all duration-200 cursor-pointer"
                             aria-label="Toggle theme"
                         >
                             {theme === "light" ? (
@@ -73,6 +72,28 @@ export default function Navbar() {
                                 </svg>
                             )}
                         </button>
+
+                        {/* Profile Avatar */}
+                        <Link
+                            to="/profile"
+                            className={`ml-1 flex h-9 w-9 items-center justify-center rounded-full overflow-hidden transition-all duration-200 ring-2 cursor-pointer ${isActive("/profile")
+                                    ? "ring-indigo-500 shadow-lg shadow-indigo-500/30"
+                                    : "ring-white/10 hover:ring-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/20"
+                                }`}
+                            title="Profile"
+                        >
+                            {userProfile?.avatar_url ? (
+                                <img
+                                    src={userProfile.avatar_url}
+                                    alt="Profile"
+                                    className="h-full w-full object-cover"
+                                />
+                            ) : (
+                                <div className="h-full w-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold">
+                                    {initials}
+                                </div>
+                            )}
+                        </Link>
                     </div>
                 </div>
             </div>

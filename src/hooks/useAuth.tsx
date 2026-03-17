@@ -14,8 +14,9 @@ interface AuthContextType {
     userProfile: UserProfile | null;
     loading: boolean;
     login: (email: string, password: string) => Promise<void>;
-    register: (email: string, password: string, role?: "admin" | "user") => Promise<void>;
+    register: (email: string, password: string, name: string, department: string) => Promise<void>;
     logout: () => Promise<void>;
+    refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -72,19 +73,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error) throw error;
     };
 
-    const register = async (email: string, password: string, role: "admin" | "user" = "user") => {
+    const register = async (email: string, password: string, name: string, department: string) => {
         const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
         if (data.user) {
             await supabase.from("profiles").insert({
                 id: data.user.id,
                 email: data.user.email,
-                role,
+                name,
+                role: "user",
+                department,
             });
             setUserProfile({
                 id: data.user.id,
                 email: data.user.email!,
-                role,
+                name,
+                role: "user",
+                department,
                 created_at: new Date().toISOString(),
             });
         }
@@ -96,9 +101,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUserProfile(null);
     };
 
+    const refreshProfile = async () => {
+        if (user) {
+            await fetchProfile(user.id);
+        }
+    };
+
     return (
         <AuthContext.Provider
-            value={{ user, userProfile, loading, login, register, logout }}
+            value={{ user, userProfile, loading, login, register, logout, refreshProfile }}
         >
             {children}
         </AuthContext.Provider>

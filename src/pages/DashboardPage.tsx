@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { useAuth } from "../hooks/useAuth";
 import type { Notice } from "../types";
 import { CATEGORIES } from "../constants/categories";
 import Navbar from "../components/Navbar";
@@ -8,16 +9,21 @@ import CategorySection from "../components/CategorySection";
 import LoadingSpinner from "../components/LoadingSpinner";
 
 export default function DashboardPage() {
+    const { userProfile } = useAuth();
     const [notices, setNotices] = useState<Notice[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchNotices = async () => {
             const today = new Date().toISOString().split("T")[0];
+
+            // Fetch notices that match user's department OR are "General"
+            const userDept = userProfile?.department || "General";
             const { data } = await supabase
                 .from("notices")
                 .select("*")
                 .gte("expiry_date", today)
+                .or(`department.eq.General,department.eq.${userDept}`)
                 .order("created_at", { ascending: false });
             if (data) setNotices(data as Notice[]);
             setLoading(false);
@@ -39,7 +45,7 @@ export default function DashboardPage() {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, []);
+    }, [userProfile?.department]);
 
     // Group notices by category
     const grouped = new Map<string, Notice[]>();
@@ -59,6 +65,11 @@ export default function DashboardPage() {
                     <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Notice Board</h1>
                     <p className="mt-1 text-gray-500 dark:text-gray-400">
                         Stay updated with the latest campus announcements
+                        {userProfile?.department && userProfile.department !== "General" && (
+                            <span className="ml-2 inline-flex items-center rounded-full bg-teal-500/10 px-2.5 py-0.5 text-xs font-medium text-teal-300 ring-1 ring-teal-500/30">
+                                {userProfile.department}
+                            </span>
+                        )}
                     </p>
                 </div>
 

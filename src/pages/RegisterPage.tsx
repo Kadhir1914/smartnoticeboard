@@ -1,17 +1,18 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { DEPARTMENTS } from "../constants/departments";
 
 export default function RegisterPage() {
+    const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
+    const [department, setDepartment] = useState(DEPARTMENTS[0]);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const { register } = useAuth();
     const navigate = useNavigate();
-    const location = useLocation();
-    const roleFromState = (location.state as { role?: "admin" | "user" })?.role || "user";
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
@@ -24,7 +25,7 @@ export default function RegisterPage() {
 
         setLoading(true);
         try {
-            await register(email, password, roleFromState);
+            await register(email, password, name, department);
             navigate("/dashboard");
         } catch (err: unknown) {
             const message =
@@ -34,6 +35,9 @@ export default function RegisterPage() {
             setLoading(false);
         }
     };
+
+    const inputClass =
+        "w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 px-4 py-3 text-sm text-gray-900 dark:text-white placeholder-gray-500 outline-none transition-all focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20";
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
@@ -47,11 +51,11 @@ export default function RegisterPage() {
                 {/* Header */}
                 <div className="mb-8 text-center">
                     <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/30">
-                        <svg className="h-7 w-7 text-gray-900 dark:text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <svg className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 0 1-2.25 2.25M16.5 7.5V18a2.25 2.25 0 0 0 2.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 0 0 2.25 2.25h13.5" />
                         </svg>
                     </div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Create {roleFromState === "admin" ? "Admin" : "User"} Account</h1>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Create Account</h1>
                     <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Join SmartNotice</p>
                 </div>
 
@@ -65,6 +69,21 @@ export default function RegisterPage() {
 
                     <form onSubmit={handleSubmit} className="space-y-5">
                         <div>
+                            <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                Full Name
+                            </label>
+                            <input
+                                id="name"
+                                type="text"
+                                required
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                className={inputClass}
+                                placeholder="John Doe"
+                            />
+                        </div>
+
+                        <div>
                             <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                                 Email
                             </label>
@@ -74,9 +93,27 @@ export default function RegisterPage() {
                                 required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 px-4 py-3 text-sm text-gray-900 dark:text-white placeholder-gray-500 outline-none transition-all focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20"
+                                className={inputClass}
                                 placeholder="you@university.edu"
                             />
+                        </div>
+
+                        <div>
+                            <label htmlFor="department" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                Department
+                            </label>
+                            <select
+                                id="department"
+                                value={department}
+                                onChange={(e) => setDepartment(e.target.value)}
+                                className={inputClass}
+                            >
+                                {DEPARTMENTS.filter(d => d !== "General").map((dept) => (
+                                    <option key={dept} value={dept} className="bg-gray-900">
+                                        {dept}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
 
                         <div>
@@ -90,7 +127,7 @@ export default function RegisterPage() {
                                 minLength={6}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 px-4 py-3 text-sm text-gray-900 dark:text-white placeholder-gray-500 outline-none transition-all focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20"
+                                className={inputClass}
                                 placeholder="••••••••"
                             />
                         </div>
@@ -106,7 +143,7 @@ export default function RegisterPage() {
                                 minLength={6}
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
-                                className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 px-4 py-3 text-sm text-gray-900 dark:text-white placeholder-gray-500 outline-none transition-all focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20"
+                                className={inputClass}
                                 placeholder="••••••••"
                             />
                         </div>
@@ -114,7 +151,7 @@ export default function RegisterPage() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-3 text-sm font-semibold text-gray-900 dark:text-white shadow-lg shadow-indigo-500/25 transition-all hover:shadow-indigo-500/40 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                            className="w-full rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:shadow-indigo-500/40 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         >
                             {loading ? "Creating account…" : "Create Account"}
                         </button>
